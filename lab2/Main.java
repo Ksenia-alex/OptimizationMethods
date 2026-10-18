@@ -5,6 +5,8 @@ import java.util.Scanner;
 import java.util.function.DoubleUnaryOperator;
 
 public class Main {
+  private static final int MAX_ITER = 100_000;
+
   public static void main(String[] args) {
     Scanner sc = new Scanner(System.in);
     sc.useLocale(java.util.Locale.US);
@@ -12,39 +14,41 @@ public class Main {
     System.out.println("Ввод данных");
     System.out.print("Введите f(x) = ");
     String funcStr = sc.nextLine().trim();
+    if (funcStr.isEmpty()) { System.out.println("Ошибка: пустая строка функции"); return; }
 
     System.out.print("Введите через пробел границы a, b и eps: ");
+    if (!sc.hasNextDouble()) { System.out.println("Ошибка: ожидалось число a"); return; }
     double a   = sc.nextDouble();
+    if (!sc.hasNextDouble()) { System.out.println("Ошибка: ожидалось число b"); return; }
     double b   = sc.nextDouble();
+    if (!sc.hasNextDouble()) { System.out.println("Ошибка: ожидалось число eps"); return; }
     double eps = sc.nextDouble();
 
     MathExpression expr = new MathExpression(funcStr);
     DoubleUnaryOperator f = expr::eval;
 
-    sc.nextLine();
-    System.out.print("Введите L: ");
-    String lInput = sc.nextLine().trim();
+    long startTime = System.nanoTime();
 
-    double L;
-    if (lInput.isEmpty()) {
-      L = estimateLipschitz(f, a, b, 2000);
-      System.out.printf("Оценка L = %.4f%n", L);
-    } else {
-      L = Double.parseDouble(lInput);
-    }
+    double L = estimateLipschitz(f, a, b, 2000);
 
-    Result result = PiyavskiiMethod.minimize(f, a, b, L, eps);
+    Result result = PiyavskiiMethod.minimize(f, a, b, L, eps, MAX_ITER);
+
+    long totalTimeNanos = System.nanoTime() - startTime;
 
     System.out.println("\nРезультаты:");
     System.out.println("Функция: f(x) = " + funcStr);
     System.out.println("Отрезок: [" + a + ", " + b + "]");
     System.out.println("Точность eps: " + eps);
-    System.out.println("Константа L: " + L + "\n");
+    System.out.println("Константа L: " + L);
+    System.out.println("Статус: " + result.status + "\n");
+    if (!Double.isFinite(result.x) || !Double.isFinite(result.y)) return;
     System.out.println("Количество итераций: " + result.iteration);
-    System.out.printf ("Время: %.3f мс%n", result.timeNanos / 1e6);
-    System.out.println("Количество пробных точек: " + result.points.size() + "\n");
-    System.out.printf ("Найденный x*: %.8f%n", result.x);
-    System.out.printf ("Значение f(x*): %.8f%n", result.y);
+    System.out.printf("Время метода: %.3f мс%n", result.timeNanos / 1e6);
+    System.out.printf("Общее время: %.3f мс%n", totalTimeNanos / 1e6);
+    System.out.println("Количество пробных точек: " + result.points.size());
+    System.out.printf("Итоговый разрыв: %.10f%n \n", result.finalGap);
+    System.out.printf("Найденный x*: %.8f%n", result.x);
+    System.out.printf("Значение f(x*): %.8f%n", result.y);
 
     SwingUtilities.invokeLater(() -> {
       JFrame frame = new JFrame("Метод ломаных");

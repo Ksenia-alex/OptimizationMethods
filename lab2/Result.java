@@ -8,4 +8,6 @@ public class Result {
   public long timeNanos;
   public List<Point> points;
   public double L, a, b, eps;
+  public double finalGap;
+  public String status;
 }
