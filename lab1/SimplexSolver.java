@@ -10,11 +10,29 @@ public class SimplexSolver {
     int n = p.n();
     int m = p.m();
 
+    int[] varType = new int[n];
+    if (p.varType != null && p.varType.length == n) varType = p.varType.clone();
+
+    int[] col1 = new int[n];
+    int[] col2 = new int[n];
+    int shiftedN = 0;
+    for (int j = 0; j < n; j++) {
+      if (varType[j] == LPProblem.FREE) {
+        col1[j] = shiftedN;
+        col2[j] = shiftedN + 1;
+        shiftedN += 2;
+      } else {
+        col1[j] = shiftedN;
+        col2[j] = -1;
+        shiftedN += 1;
+      }
+    }
+
     // добавляем переменные для каждого <= и >=
     int slackAndSurplusCount = 0;
     for (String op : p.ops) if (!op.equals("=")) slackAndSurplusCount++;
 
-    int baseVars = n + slackAndSurplusCount;
+    int baseVars = shiftedN + slackAndSurplusCount;
     double[][] T = new double[m + 1][baseVars + m + 1];
     int[] basis = new int[m];
     Arrays.fill(basis, -1);
@@ -33,7 +51,21 @@ public class SimplexSolver {
         else if (op.equals(">=")) op = "<=";
       }
 
-      for (int j = 0; j < n; j++) T[i][j] = sign * p.a[i][j];
+      for (int j = 0; j < n; j++) {
+        double aij = sign * p.a[i][j];
+        switch (varType[j]) {
+          case LPProblem.NONNEG:                // x_j = +y_j
+            T[i][col1[j]] = aij;
+            break;
+          case LPProblem.NONPOS:                // x_j = -y_j
+            T[i][col1[j]] = -aij;
+            break;
+          case LPProblem.FREE:                  // x_j = y_j+ - y_j-
+            T[i][col1[j]] = aij;
+            T[i][col2[j]] = -aij;
+            break;
+        }
+      }
 
       if (op.equals("<=")) {
         T[i][n + idx] = 1.0;
@@ -96,14 +128,15 @@ public class SimplexSolver {
         }
       }
 
-      if (simplex(T, basis, m, baseVars + m, 0, baseVars + artCount) < 0) return r;
-
+      if (simplex(T, basis, m, baseVars + m, 0, baseVars + artCount) < 0) {
+        r.status = Result.Status.INFEASIBLE;
+        return r;
+      }
 
       double phase1Val = -T[m][baseVars + m];
 
       if (phase1Val > EPS) {
-        r.feasible = false;
-        System.out.println("Задача несовместна: допустимая область пуста");
+        r.status = Result.Status.INFEASIBLE;
         return r;
       }
 
@@ -121,11 +154,24 @@ public class SimplexSolver {
     }
 
     for (int j = 0; j <= baseVars + m; j++) T[m][j] = 0.0;
-    for (int j = 0; j < n; j++)
-      T[m][j] = p.minimize ? p.coefficients[j] : -p.coefficients[j];
+    for (int j = 0; j < n; j++) {
+      double cj = p.minimize ? p.coefficients[j] : -p.coefficients[j];
+      switch (varType[j]) {
+        case LPProblem.NONNEG:
+          T[m][col1[j]] = cj;
+          break;
+        case LPProblem.NONPOS:
+          T[m][col1[j]] = -cj;
+          break;
+        case LPProblem.FREE:
+          T[m][col1[j]] = cj;
+          T[m][col2[j]] = -cj;
+          break;
+      }
+    }
 
     for (int i = 0; i < m; i++) {
-      if (basis[i] < n) {
+      if (basis[i] < shiftedN) {
         double coeff = T[m][basis[i]];
         if (Math.abs(coeff) > EPS) {
           for (int j = 0; j <= baseVars + m; j++) T[m][j] -= coeff * T[i][j];
@@ -134,22 +180,39 @@ public class SimplexSolver {
     }
 
     if (simplex(T, basis, m, baseVars + m, 0, baseVars) < 0) {
-      r.feasible = true;
-      System.out.println("Целевая функция не ограничена на допустимой области");
+      r.status = Result.Status.UNBOUNDED;
       return r;
     }
 
     double[] x = new double[n];
-    for (int i = 0; i < m; i++)
-      if (basis[i] < n) x[basis[i]] = T[i][baseVars + m];
+    for (int j = 0; j < n; j++) {
+      double y1 = columnValue(T, basis, m, baseVars + m, col1[j]);
+      switch (varType[j]) {
+        case LPProblem.NONNEG:
+          x[j] = y1;
+          break;
+        case LPProblem.NONPOS:
+          x[j] = -y1;
+          break;
+        case LPProblem.FREE:
+          double y2 = columnValue(T, basis, m, baseVars + m, col2[j]);
+          x[j] = y1 - y2;
+          break;
+      }
+    }
 
     double value = 0;
     for (int j = 0; j < n; j++) value += p.coefficients[j] * x[j];
 
-    r.feasible = true;
+    r.status = Result.Status.OPTIMAL;
     r.x = x;
     r.z = value;
     return r;
+  }
+
+  private static double columnValue(double[][] T, int[] basis, int m, int RHS, int col) {
+    for (int i = 0; i < m; i++) if (basis[i] == col) return T[i][RHS];
+    return 0.0;
   }
 
   // итерации симплекс-метода
@@ -182,8 +245,7 @@ public class SimplexSolver {
   }
 
   // пересчет таблицы
-  private static void pivot(double[][] T, int[] basis, int m, int n,
-                            int pivotRow, int pivotCol) {
+  private static void pivot(double[][] T, int[] basis, int m, int n, int pivotRow, int pivotCol) {
     double piv = T[pivotRow][pivotCol];
     for (int j = 0; j <= n; j++) T[pivotRow][j] /= piv;
     for (int i = 0; i <= m; i++) {

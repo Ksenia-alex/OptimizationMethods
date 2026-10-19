@@ -1,7 +1,8 @@
 package lab1;
 
 public class Result {
-  public boolean feasible;
+  public enum Status { OPTIMAL, INFEASIBLE, UNBOUNDED }
+  public Status status;
   public double[] x;
   public double z;
 }

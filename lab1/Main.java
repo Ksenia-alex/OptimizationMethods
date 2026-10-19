@@ -16,14 +16,21 @@ public class Main {
 
     System.out.println();
     System.out.println("ОТВЕТ");
-    if (r.feasible) {
+    if (r.status == Result.Status.OPTIMAL) {
+      System.out.println("Статус: оптимальное решение найдено");
       System.out.print("Оптимальная точка: x = (");
       for (int i = 0; i < r.x.length; i++) {
-        System.out.print(String.format("%.2f", r.x[i]));
+        System.out.print(String.format(Locale.US, "%.4f", r.x[i]));
         if (i < r.x.length - 1) System.out.print(", ");
       }
       System.out.println(")");
-      System.out.printf("Значение целевой функции: %.2f%n", r.z);
+      System.out.printf(Locale.US, "Значение целевой функции: %.4f%n", r.z);
+    } else if (r.status == Result.Status.INFEASIBLE) {
+      System.out.println("Статус: задача несовместна");
+      System.out.println("Допустимая область пуста — решений нет");
+    } else {
+      System.out.println("Статус: целевая функция не ограничена");
+      System.out.println("На допустимой области значение можно сделать сколь угодно большим/малым");
     }
   }
 
@@ -49,13 +56,37 @@ public class Main {
       p.coefficients[i - 1] = Double.parseDouble(parts[i].replace(',', '.'));
     int n = p.coefficients.length;
 
+    p.varType = new int[n];
+
     // остальные строки - ограничения
     List<double[]> a = new ArrayList<>();
     List<Double> b = new ArrayList<>();
     List<String> ops = new ArrayList<>();
 
     for (int k = 1; k < lines.size(); k++) {
+      String line = lines.get(k);
       parts = lines.get(k).split("\\s+");
+      String first = parts[0].toLowerCase(Locale.ROOT);
+
+      if (first.equals("nonneg") || first.equals("nonpos") || first.equals("free")) {
+        int type = first.equals("nonneg") ? LPProblem.NONNEG
+          : first.equals("nonpos") ? LPProblem.NONPOS
+          : LPProblem.FREE;
+        for (int t = 1; t < parts.length; t++) {
+          int idx;
+          try {
+            idx = Integer.parseInt(parts[t]);
+          } catch (NumberFormatException e) {
+            throw new RuntimeException("Некорректный индекс в строке '"
+              + first + "': " + parts[t]);
+          }
+          if (idx < 1 || idx > n)
+            throw new RuntimeException("Индекс переменной вне [1, " + n + "]: " + idx);
+          p.varType[idx - 1] = type;
+        }
+        continue;
+      }
+
       int opIdx = -1;
       for (int j = 0; j < parts.length; j++) {
         String t = parts[j];
@@ -91,8 +122,24 @@ public class Main {
     System.out.println("Ограничения:");
     for (int i = 0; i < p.m(); i++) {
       System.out.println(printRow(p.a[i]) + p.ops[i] + " " + p.b[i]);
+      StringBuilder nn = new StringBuilder(), np = new StringBuilder(), fv = new StringBuilder();
+      for (int j = 0; j < p.n(); j++) {
+        int t = (p.varType == null) ? LPProblem.NONNEG : p.varType[j];
+        String tag = "x" + (j + 1);
+        if (t == LPProblem.NONNEG) append(nn, tag);
+        else if (t == LPProblem.NONPOS) append(np, tag);
+        else append(fv, tag);
+      }
+      System.out.println("x >= 0: " + (nn.length() == 0 ? "—" : nn));
+      System.out.println("x < 0: " + (np.length() == 0 ? "—" : np));
+      System.out.println("свободные: " + (fv.length() == 0 ? "—" : fv));
     }
   }
+
+  private static void append(StringBuilder sb, String s) {
+    if (sb.length() > 0) sb.append(", ");
+    sb.append(s);
+    }
 
   private static String printRow(double[] c) {
     StringBuilder sb = new StringBuilder();
