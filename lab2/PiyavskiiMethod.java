@@ -50,6 +50,8 @@ public class PiyavskiiMethod {
         if (z < minZ) {
           minZ = z;
           xNext = xIntersection;
+          leftX = p1.x;
+          rightX = p2.x;
         }
       }
 
