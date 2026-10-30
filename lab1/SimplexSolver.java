@@ -68,10 +68,10 @@ public class SimplexSolver {
       }
 
       if (op.equals("<=")) {
-        T[i][n + idx] = 1.0;
+        T[i][shiftedN + idx] = 1.0;
         idx++;
       } else if (op.equals(">=")) {
-        T[i][n + idx] = -1.0;
+        T[i][shiftedN + idx] = -1.0;
         idx++;
       }
 
