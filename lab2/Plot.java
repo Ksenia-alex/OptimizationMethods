@@ -145,6 +145,20 @@ public class Plot extends JPanel {
     for (int i = 1; i <= SAMPLES; i++) pathFunc.lineTo(X.applyAsDouble(xs[i]), Y.applyAsDouble(ysFunc[i]));
     g2.draw(pathFunc);
 
+    // Вспомогательные функции
+    g2.setColor(new Color(180, 180, 220, 90));
+    g2.setStroke(new BasicStroke(1.0f));
+    for (Point p : result.points) {
+      Path2D cone = new Path2D.Double();
+      for (int i = 0; i <= SAMPLES; i++) {
+        double x = a + (b - a) * i / SAMPLES;
+        double y = p.y - L * Math.abs(x - p.x);
+        if (i == 0) cone.moveTo(X.applyAsDouble(x), Y.applyAsDouble(y));
+        else cone.lineTo(X.applyAsDouble(x), Y.applyAsDouble(y));
+      }
+      g2.draw(cone);
+    }
+
     // Нижняя огибающая (ломаная)
     g2.setColor(ENV_COLOR);
     g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 10f, new float[]{6f, 4f}, 0f));
@@ -180,7 +194,7 @@ public class Plot extends JPanel {
 
   private void drawLegend(Graphics2D g2, int x, int y) {
     int boxW = 230;
-    int boxH = 110;
+    int boxH = 135;
 
     g2.setColor(new Color(255, 255, 255, 230));
     g2.fillRoundRect(x, y, boxW, boxH, 12, 12);
@@ -225,6 +239,14 @@ public class Plot extends JPanel {
     g2.fillOval(lx + 9, ly - 8, 8, 8);
     g2.setColor(TEXT_COLOR);
     g2.drawString("найденный минимум", lx + 34, ly);
+
+    // Вспомогательные функции
+    ly += lineH;
+    g2.setColor(new Color(180, 180, 220, 200));
+    g2.setStroke(new BasicStroke(1.5f));
+    g2.drawLine(lx, ly - 4, lx + 26, ly - 4);
+    g2.setColor(TEXT_COLOR);
+    g2.drawString("вспомогательные функции", lx + 34, ly);
   }
 
   private static String fmtTick(double v) {

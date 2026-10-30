@@ -33,24 +33,12 @@ public class MathExpression {
    * Функция умножает и делит множители, пока есть * или /
    */
   private double term() {
-    double v = factor();
+    double v = unary();
     while (pos < s.length()) {
       char c = s.charAt(pos);
-      if (c == '*') { pos++; v *= factor(); }
-      else if (c == '/') { pos++; v /= factor(); }
+      if (c == '*') { pos++; v *= unary(); }
+      else if (c == '/') { pos++; v /= unary(); }
       else break;
-    }
-    return v;
-  }
-
-  /**
-   * Функция возводит в степень
-   */
-  private double factor() {
-    double v = unary();
-    if (pos < s.length() && s.charAt(pos) == '^') {
-      pos++;
-      v = Math.pow(v, factor());
     }
     return v;
   }
@@ -64,7 +52,19 @@ public class MathExpression {
       if (c == '+') { pos++; return  unary(); }
       if (c == '-') { pos++; return -unary(); }
     }
-    return primary();
+    return factor();
+  }
+
+  /**
+   * Функция возводит в степень
+   */
+  private double factor() {
+    double v = primary();
+    if (pos < s.length() && s.charAt(pos) == '^') {
+      pos++;
+      v = Math.pow(v, unary());
+    }
+    return v;
   }
 
   /**

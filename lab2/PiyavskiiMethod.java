@@ -11,10 +11,14 @@ public class PiyavskiiMethod {
     if (a >= b) return error(a, b, L, eps, "должно быть a < b");
     if (!Double.isFinite(eps) || eps <= 0) return error(a, b, L, eps, "eps должно быть > 0");
     if (maxIter <= 0) return error(a, b, L, eps, "maxIter должно быть > 0");
+    if (!Double.isFinite(L) || L <= 0) return error(a, b, L, eps, "L должно быть конечным и > 0");
 
     double fa = f.applyAsDouble(a);
     double fb = f.applyAsDouble(b);
     if (!Double.isFinite(fa) || !Double.isFinite(fb)) return error(a, b, L, eps, "f(a) или f(b) не конечно (NaN/Inf)");
+
+    if (Math.abs(fb - fa) > L * (b - a) * (1 + 1e-6) + 1e-9)
+      return error(a, b, L, eps, "L недостаточна на [a,b]: |Δf|/|Δx| = " + (Math.abs(fb - fa) / (b - a)) + " > L = " + L);
 
     List<Point> pts = new ArrayList<>();
     // начинаем с двух концов отрезка (a, f(a)) и (b, f(b))
@@ -41,6 +45,9 @@ public class PiyavskiiMethod {
 
         if (p2.x - p1.x <= 1e-15) continue;
 
+        if (Math.abs(p2.y - p1.y) > L * (p2.x - p1.x) * (1 + 1e-6) + 1e-9)
+          return error(a, b, L, eps, "L недостаточна: |Δf|/|Δx| = " + (Math.abs(p2.y - p1.y) / (p2.x - p1.x)) + " > L = " + L);
+
         // точка пересечения
         double xIntersection = (p1.x + p2.x) / 2.0 + (p1.y - p2.y) / (2.0 * L);
         // значение ломанной в этой точке
@@ -55,8 +62,19 @@ public class PiyavskiiMethod {
         }
       }
 
+      if (!Double.isFinite(minZ) || !Double.isFinite(best.y))
+        return error(a, b, L, eps, "Не удалось найти допустимый интервал (все точки совпали или NaN)");
+      if (Double.isNaN(xNext) || !Double.isFinite(leftX) || !Double.isFinite(rightX)
+        || rightX - leftX <= 1e-15)
+        return error(a, b, L, eps, "Не удалось найти интервал для следующей пробы");
+
       // критерий остановки
       finalGap = best.y - minZ;
+      if (!Double.isFinite(finalGap))
+        return error(a, b, L, eps, "Итоговый разрыв не конечен: " + finalGap);
+      if (finalGap < -1e-6)
+        return error(a, b, L, eps, "L недостаточна: разрыв " + finalGap + " < 0");
+
       if (finalGap <= eps) {
         long endTime = System.nanoTime();
         return buildResult(a, b, iter, endTime - startTime, pts, best, L, eps, finalGap, "сошлось: разрыв " + finalGap + " <= eps");
