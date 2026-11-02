@@ -28,9 +28,12 @@ public class Main {
     } else if (r.status == Result.Status.INFEASIBLE) {
       System.out.println("Статус: задача несовместна");
       System.out.println("Допустимая область пуста — решений нет");
-    } else {
+    } else if (r.status == Result.Status.UNBOUNDED) {
       System.out.println("Статус: целевая функция не ограничена");
       System.out.println("На допустимой области значение можно сделать сколь угодно большим/малым");
+    } else if (r.status == Result.Status.ITER_LIMIT) {
+      System.out.println("Статус: достигнут лимит итераций");
+      System.out.println("Оптимальность НЕ доказана, увеличьте MAX_ITER или проверьте задачу на вырожденность/зацикливание");
     }
   }
 

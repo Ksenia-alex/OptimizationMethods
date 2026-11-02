@@ -128,7 +128,13 @@ public class SimplexSolver {
         }
       }
 
-      if (simplex(T, basis, m, baseVars + m, 0, baseVars + artCount) < 0) {
+      int res1 = simplex(T, basis, m, baseVars + m, 0, baseVars + artCount);
+      if (res1 == -2) {
+        r.status = Result.Status.ITER_LIMIT;
+        return r;
+      }
+
+      if (res1 < 0) {
         r.status = Result.Status.INFEASIBLE;
         return r;
       }
@@ -179,7 +185,13 @@ public class SimplexSolver {
       }
     }
 
-    if (simplex(T, basis, m, baseVars + m, 0, baseVars) < 0) {
+    int res2 = simplex(T, basis, m, baseVars + m, 0, baseVars);
+    if (res2 == -2) {
+      r.status = Result.Status.ITER_LIMIT;
+      return r;
+    }
+
+    if (res2 < 0) {
       r.status = Result.Status.UNBOUNDED;
       return r;
     }
@@ -221,19 +233,20 @@ public class SimplexSolver {
     while (iter < MAX_ITER) {
       // разрешающий столбец — самый отрицательный в целевой строке
       int pivotCol = -1;
-      double minCoeff = -EPS;
       for (int j = colMin; j < colMax; j++) {
-        if (T[m][j] < minCoeff) { minCoeff = T[m][j]; pivotCol = j; }
+        if (T[m][j] < -EPS) { pivotCol = j; break; }
       }
       if (pivotCol == -1) return iter;   // оптимум
 
       // разрешающая строка — минимальное отношение b/a
       int pivotRow = -1;
       double minRatio = Double.POSITIVE_INFINITY;
+      int minBasisIdx = Integer.MAX_VALUE;
       for (int i = 0; i < m; i++) {
         if (T[i][pivotCol] > EPS) {
           double ratio = T[i][totalVars] / T[i][pivotCol];
-          if (ratio < minRatio) { minRatio = ratio; pivotRow = i; }
+          if (ratio < minRatio - EPS) { minRatio = ratio; pivotRow = i; minBasisIdx = basis[i]; }
+          else if (Math.abs(ratio - minRatio) <= EPS && basis[i] < minBasisIdx) { minRatio = ratio; pivotRow = i; minBasisIdx = basis[i]; }
         }
       }
       if (pivotRow == -1) return -1; // не ограничена
@@ -241,7 +254,7 @@ public class SimplexSolver {
       pivot(T, basis, m, totalVars, pivotRow, pivotCol);
       iter++;
     }
-    return iter;
+    return -2; // превышен лимит
   }
 
   // пересчет таблицы
